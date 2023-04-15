@@ -1,6 +1,6 @@
 # Shellcode_Generator
 
-![Language](https://img.shields.io/badge/language-c-blue.svg) ![Language](https://img.shields.io/badge/language-python-blue.svg)[![GitHub License](https://img.shields.io/github/license/jxust-xiaoxiong/Shellcode_Generator.svg)](https://github.com/jxust-xiaoxiong/Shellcode_Generator) [![GitHub Stars](https://img.shields.io/github/stars/jxust-xiaoxiong/Shellcode_Generator.svg)](https://github.com/jxust-xiaoxiong/Shellcode_Generator/stargazers)
+![Language](https://img.shields.io/badge/language-c-blue.svg) ![Language](https://img.shields.io/badge/language-python-blue.svg) [![GitHub License](https://img.shields.io/github/license/jxust-xiaoxiong/Shellcode_Generator.svg)](https://github.com/jxust-xiaoxiong/Shellcode_Generator) [![GitHub Stars](https://img.shields.io/github/stars/jxust-xiaoxiong/Shellcode_Generator.svg)](https://github.com/jxust-xiaoxiong/Shellcode_Generator/stargazers)
 
 一键生成windows x86 shellcode的python脚本
 
@@ -9,14 +9,14 @@
 * [👨🏻‍💻  预览演示](#-预览演示)
 * [🔥 介绍](#-介绍)
 * [🔗 使用环境](#-使用环境)
-* [💡用法 Usage](#-用法-usage)
+* [💡用法 Usage](#-用法 Usage)
 * [🔩 设计思路](#-设计思路)
 * [🔨 Issue提交说明](#-Issue提交说明)
 * [📜 版权与免责声明](#-版权与免责声明)
 
 ## 👨🏻‍💻 预览演示
 
-![screenshots](.\res\screenshots.gif)
+![screenshots](./res/screenshots.gif)
 
 ## 🔥 介绍
 
