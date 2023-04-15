@@ -16,6 +16,7 @@
 
 ## 👨🏻‍💻 预览演示
 
+演示生成的shellcode代码功能为创建regedit进程，向regedit进程远程线程注入添加自启动注册表项完成持久化功能。
 ![screenshots](./res/screenshots.gif)
 
 ## 🔥 介绍
@@ -28,16 +29,16 @@
 
 **优点：**
 
+- 使用简单方便，对于shellcode编写不熟练的用户，使用它可以大大提高效率
 - 大胆使用全局变量和系统API，再也不用担心地址重定位问题
-
 - 不局限于MSF和CS提供shellcode模板、随意发挥。
-
 - 支持嵌套使用shellcode
 
 **不足：**
 
-- 暂不支持x64的shellcode生成
+- 暂不支持x64的shellcode生成。
 - 对于有些**C标准库函数**处理不了，比如**strtok**函数。
+- 生成的shellcode长度会比手动编写的长不少，但相对于ReflectiveLoader反射加载的长度小很多。
 
 ## 🔗 使用环境
 
