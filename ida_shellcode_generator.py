@@ -207,6 +207,20 @@ def saveVarData(addr, case):
                 break
         shellcodeData.extend(get_bytes(value, length))
         fileOffset += length
+    elif case == 6:#处理switch
+        switchIndex = 0
+        jmpFunc = ida_funcs.get_func(addr)
+
+        while(1):
+            jmpAddr = ida_bytes.get_dword(value + switchIndex * 4)
+            switchFunc = ida_funcs.get_func(jmpAddr)
+            if switchFunc == None or switchFunc.start_ea != jmpFunc.start_ea:
+                break
+            shellcodeData.extend(get_bytes(value + switchIndex * 4, 4))
+            patchDword(fileOffset, idaAddr2FileOffset(ida_bytes.get_dword(value + switchIndex * 4)))
+            relocTable.append(fileOffset)
+            fileOffset += 4
+            switchIndex += 1
     else:
         shellcodeData.extend(get_bytes(value, 4))
         fileOffset += 4
@@ -221,8 +235,12 @@ def copyVarToShellcode():
                 saveVarData(addr, 1)
             elif " word_" in str:
                 saveVarData(addr, 2)
-            elif str.find("dword_") != -1:
+            elif str.find("dword_") != -1:#区分大小写
                 saveVarData(addr, 4)
+            elif "samDesired" in str:
+                saveVarData(addr, 4)
+            elif "jpt_" in str:
+                saveVarData(addr, 6)
             elif "offset StartAddress" in str:
                 continue
             elif "offset" in str:

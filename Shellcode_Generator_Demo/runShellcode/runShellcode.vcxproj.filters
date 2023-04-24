@@ -15,10 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Shellcode_Generator_Demo.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="demo.cpp">
+    <ClCompile Include="runShellcode.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
