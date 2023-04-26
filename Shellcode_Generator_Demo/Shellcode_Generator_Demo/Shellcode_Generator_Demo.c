@@ -141,18 +141,12 @@ void fixIatAndReloc(DWORD imageBase)
 	}
 }
 
-void strat(LPVOID param)
-{
-	//这里放需要生成的shellcode代码，可以放在多个函数中，只要被引用即可。
-	begin(param);//参数可带不可带，带了参数是接收远程线程创建的时给的参数
-}
-
 int main(LPVOID param)
 {
 	ULONG_PTR loadAddress = caller();
-	DWORD imageBase = (loadAddress & 0xfffff000);
+	DWORD imageBase = loadAddress - 0xB;
 
 	fixIatAndReloc(imageBase);
 
-	strat(param);
+	strat(param);//这里放需要生成的shellcode代码，可以放在多个函数中，只要被引用即可。参数可带不可带，带了参数是接收远程线程创建的时给的参数。
 }

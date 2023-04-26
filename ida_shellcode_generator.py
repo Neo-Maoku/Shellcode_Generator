@@ -117,6 +117,10 @@ def saveFuncData(funcAddr):
             else:
                 callFuncAddr = ida_bytes.get_dword(addr + 1) + addr + 5
             saveFuncData(getDwordValue(callFuncAddr))
+        elif "call    off_" in str:#处理CS的BOF模块
+            funcAddr = ida_bytes.get_dword(ida_bytes.get_dword(addr + 2))
+            if ida_bytes.get_byte(funcAddr) == 0xB0 and ida_bytes.get_byte(funcAddr+2) == 0xC3:#匹配mov al, 0Ch, ret;
+                patchDword(idaAddr2FileOffset(addr+2), ida_bytes.get_byte(funcAddr+1))
 
 
 def fixE8CallOffset():
@@ -316,7 +320,7 @@ def generateIatTableAndFix():
 
                 relocOffset = idaAddr2FileOffset(searchValue(x.frm, iatInfo["addr"]))
                 if relocOffset != 0:
-                    patchDword(relocOffset, getDwordValue(fileOffset))  # 这是是不是不需要getDwordValue
+                    patchDword(relocOffset, getDwordValue(fileOffset))
                     relocTable.append(relocOffset)
 
             shellcodeData.extend(b'\x00' * 4)
