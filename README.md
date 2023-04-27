@@ -10,6 +10,7 @@
 * [🔥 介绍](#-介绍)
 * [🔗 使用环境](#-使用环境)
 * [💡 用法](#-用法)
+* [🚀 更新内容](#-更新内容)
 * [🔩 设计思路](#-设计思路)
 * [🔨 Issue提交说明](#-Issue提交说明)
 * [📜 版权与免责声明](#-版权与免责声明)
@@ -19,6 +20,8 @@
 演示生成的shellcode代码功能为创建regedit进程，向regedit进程远程线程注入添加自启动注册表项完成持久化功能。
 ![screenshots](./res/screenshots.gif)
 
+演示内容：shellcode使用CS的BOF提供的BeaconPrintf输出函数，显示与被注入的regedit进程通信的注册表操作结果
+![screenshots](./res/bof.gif)
 ## 🔥 介绍
 
 ​	本项目主要想解决手动编写shellcode的过程中痛点问题（**全局变量**、**重定位**、**Windows API调用**等），帮助用户使用**C语言**实现的方法一键转换成shellcode。
@@ -31,7 +34,8 @@
 
 - 使用简单方便，对于shellcode编写不熟练的用户，使用它可以大大提高效率
 - 大胆使用全局变量和系统API，再也不用担心地址重定位问题
-- 不局限于MSF和CS提供shellcode模板、随意发挥。
+- 不局限于MSF和CS提供shellcode模板、随意发挥
+- 支持CS提供的BOF技术内置函数使用
 - 支持嵌套使用shellcode
 
 **不足：**
@@ -49,17 +53,37 @@
 
 ## 💡 用法
 
+### **shellcode生成脚本用法**
+
 1. 打开VS项目，在Shellcode_Generator_Demo.c文件中的strat函数处添加需要生成的shellcode代码，编译项目
-
 2. 使用IDA打开编译好的程序，一路默认选项，可参考演示实例
-
 3. 在IDA中找到main函数，光标选中main函数内任意地址
-
 4. 按下快捷键ALT+F7，选择项目中ida_shellcode_generator.py脚本
-
 5. 运行结束后会生成一个shellcode文件路径和大小，可以生成raw或txt格式（需要修改脚本中的outType）
-
 6. 可以使用Shellcode_Generator_Demo.c中的testShellcodeRun方法测试shellcode是否可用
+
+### CS的BOF技术内置函数用法
+
+1. 引入Shellcode_Generator_Demo项目中的beacon.h和beacon.c文件
+
+2. 在demo.c中加载beacon.h，并定义全局指针函数和内置函数对应
+    ![screenshots](./res/img1.jpg)
+    
+3. 在代码中使用函数指针调用内置函数，不要直接调用BeaconPrintf，因为我们需要生成FF 15的CALL指令，类似导出函数，在后续直接替换函数地址即可，不用担心偏移问题。
+    ![screenshots](./res/img2.jpg)
+    
+4. 编译项目，使用ida_shellcode_generator.py输出shellcode内容和长度
+
+5. 替换ShellCode2BOF项目BOF.c文件中内容
+    ![screenshots](./res/img3.jpg)
+6. 运行ShellCode2BOF项目中ShellCode2BOF程序，这里需要配置cl.exe编译器所需要的[环境变量](https://blog.csdn.net/weixin_43572650/article/details/122014949)。运行结束后会在当前目录生成BOF.obj文件，可以用CS的inline-execute命令执行
+
+## 🚀 更新内容
+
+1. 同时输出**raw**和**txt**文件
+2. 添加**push offset StartAddress**标识识别
+3. 添加**switch**结构标识识别
+4. **支持Cobalt Strike提供的BOF技术内置函数使用**
 
 ## 🔩 设计思路
 
