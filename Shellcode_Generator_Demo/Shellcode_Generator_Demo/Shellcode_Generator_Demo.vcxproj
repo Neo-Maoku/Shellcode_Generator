@@ -154,8 +154,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="beacon.cpp" />
-    <ClCompile Include="demo.cpp" />
+    <ClCompile Include="beacon.c" />
+    <ClCompile Include="demo.c" />
     <ClCompile Include="Shellcode_Generator_Demo.c" />
   </ItemGroup>
   <ItemGroup>

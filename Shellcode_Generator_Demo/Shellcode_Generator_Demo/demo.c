@@ -63,7 +63,7 @@ int begin(char* param)
 	// 判断是否有可以利用的命名管道
 	if (!WaitNamedPipe(lpszPipename, NMPWAIT_USE_DEFAULT_WAIT))
 	{
-		PBeaconPrintf(CALLBACK_ERROR, (char*)"未启动注册表注入功能");
+		PBeaconPrintf(CALLBACK_ERROR, "未启动注册表注入功能");
 		return 0;
 	}
 	
@@ -74,7 +74,7 @@ int begin(char* param)
 
 	if (hPipe == INVALID_HANDLE_VALUE)
 	{
-		PBeaconPrintf(CALLBACK_ERROR, (char*)("Open Read Pipe Error"));
+		PBeaconPrintf(CALLBACK_ERROR, "Open Read Pipe Error");
 		return 0;
 	}
 	
@@ -96,7 +96,7 @@ int begin(char* param)
 
 	if (!fSuccess || cbRequestBytes != cbWritten)
 	{
-		PBeaconPrintf(CALLBACK_ERROR, (char*)"WriteFile failed");
+		PBeaconPrintf(CALLBACK_ERROR, "WriteFile Error");
 	}
 	
 	// Read client requests from the pipe. This simplistic code only allows messages
@@ -110,7 +110,7 @@ int begin(char* param)
 
 	if (!fSuccess || cbBytesRead == 0)
 	{
-		PBeaconPrintf(CALLBACK_ERROR, (char*)"ReadFile failed");
+		PBeaconPrintf(CALLBACK_ERROR, "ReadFile Error");
 	}
 	
 	parseResponse(pchReply);
@@ -157,35 +157,35 @@ void parseResponse(char* reply)
 	splitParam((char*)reply, replys);
 
 	int operand = myAtoi(replys[0]);
-	bool isSuccess = replys[1][0] - '0';
-	char* result[] = { (char*)"失败", (char*)"成功" };
+	BOOL isSuccess = replys[1][0] - '0';
+	char* result[] = {"失败", "成功"};
 
 	if (operand == 0 || operand == 3 || operand == 6)
 	{
-		PBeaconPrintf(CALLBACK_OUTPUT, (char*)"注册表键值添加%s", result[isSuccess]);
+		PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值添加%s", result[isSuccess]);
 	}
 	else if (operand == 1 || operand == 4 || operand == 7)
 	{
-		PBeaconPrintf(CALLBACK_OUTPUT, (char*)"注册表键值修改%s", result[isSuccess]);
+		PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值修改%s", result[isSuccess]);
 	}
 	else if (operand == 2 || operand == 5 || operand == 8)
 	{
 		if (isSuccess)
-			PBeaconPrintf(CALLBACK_OUTPUT, (char*)"注册表键值查询%s, 查询的值为:%s", result[isSuccess], replys[2]);
+			PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值查询%s, 查询的值为:%s", result[isSuccess], replys[2]);
 		else
-			PBeaconPrintf(CALLBACK_OUTPUT, (char*)"注册表键值查询%s, 键不存在", result[isSuccess]);
+			PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值查询%s, 键不存在", result[isSuccess]);
 	}
 	else if (operand == 9 || operand == 10)
 	{
-		PBeaconPrintf(CALLBACK_OUTPUT, (char*)"注册表键值删除%s", result[isSuccess]);
+		PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值删除%s", result[isSuccess]);
 	}
 	else
 	{
-		PBeaconPrintf(CALLBACK_OUTPUT, (char*)"注册表不支持当前操作数");
+		PBeaconPrintf(CALLBACK_OUTPUT, "注册表不支持当前操作数");
 	}
 }
 
-extern "C" void strat(LPVOID param)
+void strat(LPVOID param)
 {
-	begin((char*)param);
+	begin(param);
 }
