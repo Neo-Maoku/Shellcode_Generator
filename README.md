@@ -24,7 +24,7 @@
 
 ![screenshots](./res/bof.gif)
 ### 项目实战演示
-![screenshots](./res/bypass_360.mp4)
+![screenshots](./res/bypass_360.gif)
 
 ## 🔥 介绍
 
