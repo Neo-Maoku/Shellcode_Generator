@@ -6,7 +6,7 @@
 
 ## 📖目录
 
-* [👨🏻‍💻 预览演示](#-预览演示)
+* [👨🏻‍💻 功能演示](#-功能演示)
 * [🔥 介绍](#-介绍)
 * [🔗 使用环境](#-使用环境)
 * [💡 用法](#-用法)
@@ -15,13 +15,17 @@
 * [🔨 Issue提交说明](#-Issue提交说明)
 * [📜 版权与免责声明](#-版权与免责声明)
 
-## 👨🏻‍💻 预览演示
+## 👨🏻‍💻 功能演示
 
 演示生成的shellcode代码功能为创建regedit进程，向regedit进程远程线程注入添加自启动注册表项完成持久化功能。
 ![screenshots](./res/screenshots.gif)
 
 演示内容：shellcode使用CS的BOF提供的BeaconPrintf输出函数，显示与被注入的regedit进程通信的注册表操作结果
+
 ![screenshots](./res/bof.gif)
+### 项目实战演示
+![screenshots](./res/bypass_360.mp4)
+
 ## 🔥 介绍
 
 ​	本项目主要想解决手动编写shellcode的过程中痛点问题（**全局变量**、**重定位**、**Windows API调用**等），帮助用户使用**C语言**实现的方法一键转换成shellcode。
