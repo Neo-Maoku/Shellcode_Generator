@@ -92,6 +92,19 @@ def get_wide_str_length(ea):
         length += 1
     return length
 
+def checkStructFunc(str, addr):
+    funcAddr = 0
+    if "stru" in str:
+        for i in range(5):
+            value = get_operand_value(addr, i)
+            if value < 0xf0000000 and value > 0x1000: #这里有的操作数会为负数，需要处理下
+                break
+        value = getDwordValue(value)
+        str = idc.generate_disasm_line(value, 0)
+        if "func0" in str:
+            funcAddr = value
+    return funcAddr
+
 
 def saveFuncData(funcAddr):
     global fileOffset
@@ -111,39 +124,43 @@ def saveFuncData(funcAddr):
     func_items = FuncItems(start_addr)
     for addr in func_items:
         str = idc.generate_disasm_line(addr, 0)
-        if (ida_bytes.get_byte(addr) == 0xE8 or "offset StartAddress" in str) and ("security_check_cookie" not in str):
-            if "offset StartAddress" in str:
+        if (ida_bytes.get_byte(addr) == 0xE8 or "offset StartAddress" in str or "offset EnumProc" in str) and ("security_check_cookie" not in str):
+            if "offset StartAddress" in str or "offset EnumProc" in str:
                 callFuncAddr = ida_bytes.get_dword(addr + 1)
             else:
                 callFuncAddr = ida_bytes.get_dword(addr + 1) + addr + 5
+            saveFuncData(getDwordValue(callFuncAddr))
+        elif checkStructFunc(str, addr) != 0:
+            callFuncAddr = ida_bytes.get_dword(checkStructFunc(str, addr))
             saveFuncData(getDwordValue(callFuncAddr))
         elif "call    off_" in str:#处理CS的BOF模块
             funcAddr = ida_bytes.get_dword(ida_bytes.get_dword(addr + 2))
             if ida_bytes.get_byte(funcAddr) == 0xB0 and ida_bytes.get_byte(funcAddr+2) == 0xC3:#匹配mov al, 0Ch, ret;
                 patchDword(idaAddr2FileOffset(addr+2), ida_bytes.get_byte(funcAddr+1))
 
-
 def fixE8CallOffset():
     for key, value in funcInfo_map.items():
         func_items = FuncItems(key)
         for addr in func_items:
             str = idc.generate_disasm_line(addr, 0)
-            if (ida_bytes.get_byte(addr) == 0xE8 or "offset StartAddress" in str) and ("security_check_cookie" not in str):
+            if (ida_bytes.get_byte(addr) == 0xE8 or "offset StartAddress" in str or "offset EnumProc" in str) and ("security_check_cookie" not in str):
                 callFuncAddr = ida_bytes.get_dword(addr + 1) + addr + 5
-                if "offset StartAddress" in str:
+                if "offset StartAddress" in str or "offset EnumProc" in str:
                     callFuncAddr = ida_bytes.get_dword(addr + 1)
                 callFuncAddr = getDwordValue(callFuncAddr)
 
                 if callFuncAddr in funcInfo_map:
-                    e8CallOffset = funcInfo_map[callFuncAddr]["newOffset"] - (idaAddr2FileOffset(addr) + 5)
-                    if "offset StartAddress" in str:
+                    if "offset StartAddress" in str or "offset EnumProc" in str:
                         e8CallOffset = funcInfo_map[callFuncAddr]["newOffset"]
                         relocTable.append(idaAddr2FileOffset(addr + 1))
+                    else:
+                        e8CallOffset = funcInfo_map[callFuncAddr]["newOffset"] - (idaAddr2FileOffset(addr) + 5)
                 else:  # 处理特殊情况:在同一个函数中跳转指令没有用jcc实现，而是用的call指令
                     func = ida_funcs.get_func(callFuncAddr)
                     fixOffset = funcInfo_map[func.start_ea]["newOffset"] + (
                                 callFuncAddr - funcInfo_map[func.start_ea]["originalAddr"])
                     e8CallOffset = fixOffset - (idaAddr2FileOffset(addr) + 5)
+
                 patchDword(idaAddr2FileOffset(addr + 1), getDwordValue(e8CallOffset))
     print("--------------fixE8CallOffset finish!--------------")
 
@@ -158,7 +175,6 @@ def deleteSecurityCode():
             elif "security_cookie" in str:
                 memset(idaAddr2FileOffset(addr), 0x90, 10)
     print("--------------deleteSecurityCode finish!--------------")
-
 
 def saveVarData(addr, case):
     global fileOffset
@@ -225,8 +241,29 @@ def saveVarData(addr, case):
             relocTable.append(fileOffset)
             fileOffset += 4
             switchIndex += 1
+    elif case == 7:#处理结构体
+        addr = next_head(value)
+        shellcodeData.extend(get_bytes(value, addr - value))
+
+        str = idc.generate_disasm_line(value, 0)
+        if "func0" in str:
+            offset = 0
+        else:
+            offset = -1
+
+        if offset != -1:
+            callFuncAddr = ida_bytes.get_dword(value + offset)
+            callOffset = funcInfo_map[callFuncAddr]["newOffset"]
+            patchDword(fileOffset + offset, callOffset)
+            relocTable.append(fileOffset + offset)
+
+        fileOffset += (addr - value)
     else:
-        shellcodeData.extend(get_bytes(value, 4))
+        str = idc.generate_disasm_line(value, 0)
+        if "?" in str:
+            shellcodeData.extend(b'\x00' * 4)
+        else:
+            shellcodeData.extend(get_bytes(value, 4))
         fileOffset += 4
 
 
@@ -235,18 +272,25 @@ def copyVarToShellcode():
         func_items = FuncItems(key)
         for addr in func_items:
             str = idc.generate_disasm_line(addr, 0)
+
             if " byte_" in str:
                 saveVarData(addr, 1)
             elif " word_" in str:
                 saveVarData(addr, 2)
             elif str.find("dword_") != -1:#区分大小写
                 saveVarData(addr, 4)
+            elif "lp" in str:#lpMultiByteStr
+                saveVarData(addr, 4)
             elif "samDesired" in str:
                 saveVarData(addr, 4)
             elif "jpt_" in str:
                 saveVarData(addr, 6)
-            elif "offset StartAddress" in str:
+            elif "offset StartAddress" in str or "offset EnumProc" in str:#处理LdrEnumerateLoadedModules
                 continue
+            elif "offset BaseAddress" in str:#处理NtAllocateVirtualMemory的BaseAddress
+                saveVarData(addr, 4)
+            elif "stru" in str:
+                saveVarData(addr, 7)
             elif "offset" in str:
                 if "mov     esi" in str:
                     saveVarData(addr, 5)
@@ -269,7 +313,6 @@ def enum_exported_dll_func():
     for i in range(idaapi.get_import_module_qty()):
         dllName = idaapi.get_import_module_name(i)
         idaapi.enum_import_names(i, imp_cb)
-
 
 def generateIatStrToShellcode():
     global fileOffset, shellcodeData
