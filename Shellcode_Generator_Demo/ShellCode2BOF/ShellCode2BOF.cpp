@@ -44,6 +44,7 @@ int main()
 		{
 			if (strcmp((const char*)(PECOFF_SYMBOL->N.ShortName), "_memcpy") == 0)
 			{
+				SectionNumber = PECOFF_SYMBOL->SectionNumber;
 				memcpyRVA = PECOFF_SYMBOL->Value;
 			}
 			else if (strcmp((const char*)(PECOFF_SYMBOL->N.ShortName), "_chkstk") == 0)
@@ -53,6 +54,7 @@ int main()
 			}
 			else if (strcmp((const char*)(PECOFF_SYMBOL->N.ShortName), "_memset") == 0)
 			{
+				SectionNumber = PECOFF_SYMBOL->SectionNumber;
 				memsetRVA = PECOFF_SYMBOL->Value;
 			}
 		}

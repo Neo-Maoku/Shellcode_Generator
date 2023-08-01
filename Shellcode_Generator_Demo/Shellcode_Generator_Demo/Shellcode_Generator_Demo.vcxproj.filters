@@ -2,8 +2,8 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="Shellcode_Generator_Demo.c" />
-    <ClCompile Include="demo.c" />
     <ClCompile Include="beacon.c" />
+    <ClCompile Include="demo.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="beacon.h" />

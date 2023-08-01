@@ -73,6 +73,7 @@ def memset(index, value, size):
 
 
 def idaAddr2FileOffset(idaAddr):
+    print("-----------idaAddr:%x"%idaAddr)
     func = ida_funcs.get_func(idaAddr)
     start_addr = func.start_ea
 
@@ -103,6 +104,7 @@ def checkStructFunc(str, addr):
         str = idc.generate_disasm_line(value, 0)
         if "func0" in str:
             funcAddr = value
+            print("----------funcAddr:%x"%funcAddr)
     return funcAddr
 
 
@@ -115,6 +117,9 @@ def saveFuncData(funcAddr):
 
     if start_addr in funcInfo_map:
         return
+    #print("%x," % (idaapi.get_fileregion_offset(funcAddr)))
+    #print("%x, " % (end_addr-start_addr))
+    print("%x, " % (funcAddr))
     funcInfo_map[start_addr] = AddrInfoStruct(start_addr, fileOffset)
 
     fileOffset += (end_addr - start_addr)
@@ -173,12 +178,15 @@ def deleteSecurityCode():
             if "security_check_cookie" in str:
                 memset(idaAddr2FileOffset(addr - 5), 0x90, 10)
             elif "security_cookie" in str:
-                memset(idaAddr2FileOffset(addr), 0x90, 10)
+                if "cmp" in str:
+                    memset(idaAddr2FileOffset(addr), 0x90, 8)
+                else:
+                    memset(idaAddr2FileOffset(addr), 0x90, 10)
     print("--------------deleteSecurityCode finish!--------------")
 
 def saveVarData(addr, case):
     global fileOffset
-
+    print("case:%d"%case)
     for i in range(5):
         value = get_operand_value(addr, i)
         if value < 0xf0000000 and value > 0x1000: #这里有的操作数会为负数，需要处理下
@@ -197,7 +205,7 @@ def saveVarData(addr, case):
         if relocOffset != 0:
             patchDword(relocOffset, getDwordValue(fileOffset))
             relocTable.append(relocOffset)
-
+    print("------------begin-----------value:%x"%value)
     if case == -1:
         strLength = 0
         if ida_nalt.get_str_type(value) != ida_nalt.STRTYPE_C:
@@ -253,11 +261,14 @@ def saveVarData(addr, case):
 
         if offset != -1:
             callFuncAddr = ida_bytes.get_dword(value + offset)
+
             callOffset = funcInfo_map[callFuncAddr]["newOffset"]
+            print("------callFuncAddr:%x  %x" % (callFuncAddr, callOffset))
             patchDword(fileOffset + offset, callOffset)
             relocTable.append(fileOffset + offset)
 
         fileOffset += (addr - value)
+
     else:
         str = idc.generate_disasm_line(value, 0)
         if "?" in str:
@@ -265,21 +276,21 @@ def saveVarData(addr, case):
         else:
             shellcodeData.extend(get_bytes(value, 4))
         fileOffset += 4
-
+    print("----------end-----------")
 
 def copyVarToShellcode():
     for key, value in funcInfo_map.items():
         func_items = FuncItems(key)
         for addr in func_items:
             str = idc.generate_disasm_line(addr, 0)
-
+            print(str)
             if " byte_" in str:
                 saveVarData(addr, 1)
             elif " word_" in str:
                 saveVarData(addr, 2)
             elif str.find("dword_") != -1:#区分大小写
                 saveVarData(addr, 4)
-            elif "lp" in str:#lpMultiByteStr
+            elif "lpMulti" in str:#lpMultiByteStr
                 saveVarData(addr, 4)
             elif "samDesired" in str:
                 saveVarData(addr, 4)
@@ -392,7 +403,7 @@ def outputShellcode():
     f = open(fileName, 'w')
     for index in range(fileOffset):
         shellcodeTxt += '\\x{:02x}'.format(shellcodeData[index])
-    shellcodeTxt += "\""
+    shellcodeTxt += "\";"
     f.write(shellcodeTxt)
     f.close()
 

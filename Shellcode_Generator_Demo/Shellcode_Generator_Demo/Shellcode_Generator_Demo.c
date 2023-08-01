@@ -16,6 +16,13 @@ typedef FARPROC(WINAPI *pGetProcAddress)(
 	);
 pGetProcAddress ReGetProcAddress;
 
+typedef BOOL(WINAPI* pVirtualProtect) (
+	LPVOID lpAddress,
+	SIZE_T dwSize,
+	DWORD  flNewProtect,
+	PDWORD lpflOldProtect
+	);
+
 DWORD GetKernel32Address() {
 	DWORD dwKernel32Addr = 0;
 	_asm {
@@ -30,7 +37,7 @@ DWORD GetKernel32Address() {
 	return  dwKernel32Addr;
 }
 
-DWORD RGetProcAddress() {
+DWORD RGetProcAddress(BYTE type) {
 	DWORD dwAddrBase = GetKernel32Address();
 
 	PIMAGE_DOS_HEADER pDos = (PIMAGE_DOS_HEADER)dwAddrBase;
@@ -59,8 +66,17 @@ DWORD RGetProcAddress() {
 			if (pAddrOfOrdinals[j] == i) {
 				DWORD dwNameOffset = pAddrOfNames[j];
 				char * pFunName = (char *)(dwAddrBase + dwNameOffset);
-				if (strcmp(pFunName, "GetProcAddress") == 0) {
-					return dwFunAddrOffset + dwAddrBase;
+				if (type == 1)
+				{
+					if (strlen(pFunName)== 14 && pFunName[0] == 'G' && pFunName[7] == 'A') {
+						return dwFunAddrOffset + dwAddrBase;
+					}
+				}
+				else if (type == 2)
+				{
+					if (strlen(pFunName) == 14 && pFunName[0] == 'V' && pFunName[7] == 'P') {
+						return dwFunAddrOffset + dwAddrBase;
+					}
 				}
 			}
 		}
@@ -71,7 +87,7 @@ void getAPIBaseAddr()
 {
 	HMODULE hKernel32 = (HMODULE)GetKernel32Address();
 
-	ReGetProcAddress = (pGetProcAddress)RGetProcAddress();
+	ReGetProcAddress = (pGetProcAddress)RGetProcAddress(1);
 
 	ReGetModuleHandle = (pGetModuleHandle)ReGetProcAddress(hKernel32, "GetModuleHandleA");
 
@@ -80,14 +96,26 @@ void getAPIBaseAddr()
 
 __declspec(noinline) ULONG_PTR caller(VOID) { return (ULONG_PTR)_ReturnAddress(); }
 
+void changeProtect(DWORD imageBase, DWORD size)
+{
+	HMODULE hKernel32 = (HMODULE)GetKernel32Address();
+
+	pGetProcAddress virtualPro = (pGetProcAddress)RGetProcAddress(2);
+
+	DWORD dwOld = 0;
+	virtualPro(imageBase, size, PAGE_EXECUTE_READWRITE, &dwOld);
+}
+
 void fixIatAndReloc(DWORD imageBase)
 {
 	DWORD relocBeginOffset = 0x99999999;
 	DWORD relocEndOffset = 0x88888888;
 
+	changeProtect(imageBase, 0x1000);
+
 	if (relocBeginOffset != 0x99999999)
 	{
-		for (DWORD i = relocBeginOffset; i <= relocEndOffset; i += 2)
+		for (DWORD i = relocBeginOffset; i < relocEndOffset; i += 2)
 		{
 			(*(PDWORD)(imageBase + *(PWORD)(imageBase + i))) += imageBase;
 		}
@@ -123,7 +151,9 @@ void fixIatAndReloc(DWORD imageBase)
 			if (split == '\x2C')
 			{
 				char* apiName = (char*)(index + 1);
+				
 				*(PDWORD)(imageBase + iatBeginOffset) = ReGetProcAddress(dllBase, apiName);
+
 				iatBeginOffset += 4;
 				index += (strlen(apiName) + 1) + 1;
 
@@ -141,12 +171,18 @@ void fixIatAndReloc(DWORD imageBase)
 	}
 }
 
+//生成shellcode时运行入口
 int main(LPVOID param)
 {
 	ULONG_PTR loadAddress = caller();
 	DWORD imageBase = loadAddress - 0xB;
-
 	fixIatAndReloc(imageBase);
 
 	strat(param);//这里放需要生成的shellcode代码，可以放在多个函数中，只要被引用即可。参数可带不可带，带了参数是接收远程线程创建的时给的参数。
 }
+
+//测试正常代码运行情况
+//int main(int argc, char * argv[])
+//{
+//	strat(argv[1]);
+//}
